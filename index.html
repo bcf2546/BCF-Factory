@@ -253,27 +253,83 @@ nav.tabs button.active{background:#fff; color:var(--brand-dark); box-shadow:var(
 
 /* Fullscreen mode — canvas fills the entire screen */
 .plan-canvas:fullscreen{
-  background:#0a0e14; border:none; border-radius:0;
+  background:#ffffff; border:none; border-radius:0;
   width:100vw; height:100vh; max-height:none; aspect-ratio:auto;
-  display:flex; align-items:center; justify-content:center;
-  padding:20px;
-}
-.plan-canvas:fullscreen #svg-wrap{
-  width:auto; height:auto; max-width:100%; max-height:100%;
-}
-/* Floating exit hint when in fullscreen */
-.plan-canvas:fullscreen::after{
-  content: "กด Esc เพื่อออก fullscreen";
-  position:fixed; top:16px; right:20px;
-  background:rgba(255,255,255,.92); color:#333;
-  padding:6px 14px; border-radius:999px;
-  font-family:'JetBrains Mono',monospace; font-size:11.5px;
-  pointer-events:none; z-index:9999;
-  box-shadow:0 4px 12px rgba(0,0,0,.2);
+  padding:0;
 }
 .plan-canvas:-webkit-full-screen{
-  background:#0a0e14; border:none; border-radius:0;
+  background:#ffffff; border:none; border-radius:0;
   width:100vw; height:100vh; max-height:none; aspect-ratio:auto;
+  padding:0;
+}
+/* In fullscreen the wrapper should be the full canvas (will be scaled by JS) */
+.plan-canvas:fullscreen #svg-wrap,
+.plan-canvas:-webkit-full-screen #svg-wrap{
+  width:100%; height:100%;
+}
+/* Floating exit hint when in fullscreen */
+.plan-canvas:fullscreen::after,
+.plan-canvas:-webkit-full-screen::after{
+  content: "กด Esc เพื่อออก fullscreen";
+  position:fixed; top:16px; right:20px;
+  background:rgba(20,20,20,.85); color:#fff;
+  padding:7px 16px; border-radius:999px;
+  font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:500;
+  pointer-events:none; z-index:2147483647;
+  box-shadow:0 6px 20px rgba(0,0,0,.3);
+  letter-spacing:.2px;
+}
+
+/* Floating fullscreen toolbar — hidden by default, shown only in :fullscreen */
+.fs-toolbar{
+  display:none;
+}
+.plan-canvas:fullscreen .fs-toolbar,
+.plan-canvas:-webkit-full-screen .fs-toolbar{
+  display:flex; align-items:center; gap:6px;
+  position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+  background:rgba(20,20,20,.92);
+  backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+  padding:8px 10px; border-radius:14px;
+  box-shadow:0 10px 30px rgba(0,0,0,.35), 0 2px 8px rgba(0,0,0,.2);
+  z-index:2147483646;
+  font-family:inherit;
+}
+.fs-toolbar .fs-btn{
+  display:inline-flex; align-items:center; gap:6px;
+  background:transparent; color:#fff; border:none;
+  padding:8px 14px; border-radius:9px;
+  font-size:13.5px; font-weight:600; cursor:pointer;
+  transition:background .15s;
+  font-family:inherit;
+}
+.fs-toolbar .fs-btn:hover{background:rgba(255,255,255,.12);}
+.fs-toolbar .fs-btn:active{background:rgba(255,255,255,.2);}
+.fs-toolbar .fs-btn.active{background:rgba(74,144,226,.55);}
+.fs-toolbar .fs-btn.fs-icon-only{
+  padding:8px 11px; font-size:17px; line-height:1; min-width:38px; justify-content:center;
+}
+.fs-toolbar .fs-icon{font-size:15px; line-height:1;}
+.fs-toolbar .fs-lbl{font-size:13px; letter-spacing:.2px;}
+.fs-toolbar .fs-sep{
+  width:1px; align-self:stretch; background:rgba(255,255,255,.18); margin:4px 2px;
+}
+.fs-toolbar .fs-exit{color:#ffb4b4;}
+.fs-toolbar .fs-exit:hover{background:rgba(255,90,90,.18); color:#ffd0d0;}
+
+/* Hide tooltip in fullscreen since we have visible buttons now */
+.plan-canvas:fullscreen::after,
+.plan-canvas:-webkit-full-screen::after{display:none;}
+
+/* On small screens shrink the toolbar */
+@media (max-width: 640px){
+  .plan-canvas:fullscreen .fs-toolbar,
+  .plan-canvas:-webkit-full-screen .fs-toolbar{
+    bottom:14px; padding:6px; gap:4px;
+  }
+  .fs-toolbar .fs-btn{padding:7px 10px; font-size:12.5px;}
+  .fs-toolbar .fs-lbl{display:none;}
+  .fs-toolbar .fs-btn.fs-icon-only{padding:7px 9px; min-width:34px;}
 }
 .plan-canvas.grabbing{cursor:grabbing;}
 .plan-canvas:not(.grabbing):not(.edit){cursor:grab;}
@@ -1228,6 +1284,23 @@ footer{border-top:1px solid var(--line-2); padding:24px 28px; background:#fff;}
       <div class="heatmap-info" id="heatmap-info">
         <b>🌡 Cross-contamination Risk</b><br>
         ไฮไลต์ห้อง <b>ไลน์ปนเปื้อน</b> ที่อยู่ติดกับ <b>ไลน์สะอาด</b> โดยตรง — เป็นจุดเสี่ยง GMP ที่ควรใส่ใจการแยก airflow และ traffic flow
+      </div>
+      <!-- Floating toolbar shown only in fullscreen -->
+      <div class="fs-toolbar" id="fs-toolbar" aria-hidden="true">
+        <button class="fs-btn" id="fs-flow" title="เส้นทางการผลิต · Flow">
+          <span class="fs-icon">→</span><span class="fs-lbl">Flow</span>
+        </button>
+        <button class="fs-btn" id="fs-overlay" title="แสดง/ซ่อนโซนสี">
+          <span class="fs-icon">🎨</span><span class="fs-lbl">โซนสี</span>
+        </button>
+        <div class="fs-sep"></div>
+        <button class="fs-btn fs-icon-only" id="fs-zoom-out" title="ซูมออก">−</button>
+        <button class="fs-btn fs-icon-only" id="fs-zoom-reset" title="รีเซ็ตซูม">⤢</button>
+        <button class="fs-btn fs-icon-only" id="fs-zoom-in" title="ซูมเข้า">+</button>
+        <div class="fs-sep"></div>
+        <button class="fs-btn fs-exit" id="fs-exit" title="ออก fullscreen (Esc)">
+          <span class="fs-icon">✕</span><span class="fs-lbl">ออก</span>
+        </button>
       </div>
     </div>
 
@@ -3081,7 +3154,7 @@ document.getElementById('zoom-reset').addEventListener('click', () => { scale = 
 // Fullscreen toggle
 document.getElementById('btn-fullscreen').addEventListener('click', () => {
   const target = canvasEl;
-  if(!document.fullscreenElement){
+  if(!document.fullscreenElement && !document.webkitFullscreenElement){
     if(target.requestFullscreen) target.requestFullscreen();
     else if(target.webkitRequestFullscreen) target.webkitRequestFullscreen();
   } else {
@@ -3089,15 +3162,57 @@ document.getElementById('btn-fullscreen').addEventListener('click', () => {
     else if(document.webkitExitFullscreen) document.webkitExitFullscreen();
   }
 });
-// When fullscreen state changes, re-render PDF at appropriate resolution
-document.addEventListener('fullscreenchange', () => {
-  document.body.classList.toggle('is-fullscreen', !!document.fullscreenElement);
-  rerenderPdfDebounced(50);
-});
-document.addEventListener('webkitfullscreenchange', () => {
-  document.body.classList.toggle('is-fullscreen', !!document.webkitFullscreenElement);
-  rerenderPdfDebounced(50);
-});
+// When fullscreen state changes: reset zoom/pan so the plan fits the new viewport,
+// then re-render the PDF at the new resolution.
+// Also relocate any open modal into the fullscreen element so it remains visible
+// (browsers only render the fullscreen element + descendants).
+function handleFullscreenChange(){
+  const inFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+  document.body.classList.toggle('is-fullscreen', inFs);
+  // Reset transform so the plan is centered/fit on entry & exit
+  scale = 1; tx = 0; ty = 0;
+  applyTransform();
+  // Move data-modals & detail panel into / out of the canvas so they stay visible
+  const canvas = canvasEl;
+  const stash = document.getElementById('fs-modal-stash') || (() => {
+    const d = document.createElement('div'); d.id = 'fs-modal-stash'; d.style.display = 'none';
+    document.body.appendChild(d); return d;
+  })();
+  const portable = document.querySelectorAll('.data-modal, .detail-panel, .lightbox, .more-menu, .media-viewer-modal, .gallery-add-modal');
+  if(inFs){
+    portable.forEach(el => {
+      el.dataset.fsOrigParent = el.dataset.fsOrigParent || 'body';
+      canvas.appendChild(el);
+    });
+  } else {
+    portable.forEach(el => {
+      if(el.parentElement !== document.body) document.body.appendChild(el);
+    });
+  }
+  // Give the browser a tick to apply the new size, then re-render PDF crisp
+  setTimeout(() => rerenderPdfDebounced(50), 60);
+}
+document.addEventListener('fullscreenchange', handleFullscreenChange);
+document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+
+// Wire fullscreen toolbar buttons → reuse existing button handlers
+(function wireFsToolbar(){
+  const click = id => { const b = document.getElementById(id); if(b) b.click(); };
+  document.getElementById('fs-flow')     ?.addEventListener('click', () => click('btn-flow'));
+  document.getElementById('fs-overlay')  ?.addEventListener('click', () => {
+    click('toggle-overlay');
+    // Mirror active state from the original toggle
+    const orig = document.getElementById('toggle-overlay');
+    document.getElementById('fs-overlay').classList.toggle('active', orig?.classList.contains('active'));
+  });
+  document.getElementById('fs-zoom-in')   ?.addEventListener('click', () => click('zoom-in'));
+  document.getElementById('fs-zoom-out')  ?.addEventListener('click', () => click('zoom-out'));
+  document.getElementById('fs-zoom-reset')?.addEventListener('click', () => click('zoom-reset'));
+  document.getElementById('fs-exit')      ?.addEventListener('click', () => click('btn-fullscreen'));
+  // Initialise overlay button's active state to match the original
+  const orig = document.getElementById('toggle-overlay');
+  if(orig) document.getElementById('fs-overlay')?.classList.toggle('active', orig.classList.contains('active'));
+})();
 
 canvasEl.addEventListener('wheel', e => {
   e.preventDefault();
