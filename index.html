@@ -267,19 +267,6 @@ nav.tabs button.active{background:#fff; color:var(--brand-dark); box-shadow:var(
 .plan-canvas:-webkit-full-screen #svg-wrap{
   width:100%; height:100%;
 }
-/* Floating exit hint when in fullscreen */
-.plan-canvas:fullscreen::after,
-.plan-canvas:-webkit-full-screen::after{
-  content: "กด Esc เพื่อออก fullscreen";
-  position:fixed; top:16px; right:20px;
-  background:rgba(20,20,20,.85); color:#fff;
-  padding:7px 16px; border-radius:999px;
-  font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:500;
-  pointer-events:none; z-index:2147483647;
-  box-shadow:0 6px 20px rgba(0,0,0,.3);
-  letter-spacing:.2px;
-}
-
 /* Floating fullscreen toolbar — hidden by default, shown only in :fullscreen */
 .fs-toolbar{
   display:none;
@@ -316,10 +303,6 @@ nav.tabs button.active{background:#fff; color:var(--brand-dark); box-shadow:var(
 }
 .fs-toolbar .fs-exit{color:#ffb4b4;}
 .fs-toolbar .fs-exit:hover{background:rgba(255,90,90,.18); color:#ffd0d0;}
-
-/* Hide tooltip in fullscreen since we have visible buttons now */
-.plan-canvas:fullscreen::after,
-.plan-canvas:-webkit-full-screen::after{display:none;}
 
 /* On small screens shrink the toolbar */
 @media (max-width: 640px){
@@ -1332,7 +1315,7 @@ footer{border-top:1px solid var(--line-2); padding:24px 28px; background:#fff;}
 
 <aside class="detail-panel" id="detail-panel">
   <div class="dp-head">
-    <button class="dp-close" id="dp-close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    <button class="dp-close" id="dp-close" aria-label="ปิด" title="ปิด"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     <span class="dp-tag" id="dp-tag">ZONE</span>
     <h2 class="dp-title" id="dp-title">—</h2>
     <div class="dp-title-en" id="dp-title-en"></div>
@@ -1344,7 +1327,7 @@ footer{border-top:1px solid var(--line-2); padding:24px 28px; background:#fff;}
   <div class="lightbox-card">
     <div class="lb-head">
       <strong style="font-family:'Fraunces',serif; font-size:15px;" id="lb-title-top">Certification</strong>
-      <button class="dp-close" id="lb-close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      <button class="dp-close" id="lb-close" aria-label="ปิด" title="ปิด"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="lb-body">
       <div class="lb-img" id="lb-img"></div>
@@ -2357,7 +2340,7 @@ async function loadPdf(){
     // fade in PDF canvas, hide image behind
     pdfCanvas.style.opacity = '1';
     pdfEnabled = true;
-    console.log(`PDF.js active — vector-crisp at any zoom (${pdfNatW}×${pdfNatH} pt)`);
+    // PDF.js active — vector-crisp at any zoom
     loadingEl.classList.add('hidden');
     setTimeout(() => loadingEl.style.display = 'none', 400);
   } catch(err){
@@ -3170,48 +3153,48 @@ function handleFullscreenChange(){
   const inFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
   document.body.classList.toggle('is-fullscreen', inFs);
   // Reset transform so the plan is centered/fit on entry & exit
-  scale = 1; tx = 0; ty = 0;
-  applyTransform();
+  if(typeof applyTransform === 'function'){
+    scale = 1; tx = 0; ty = 0;
+    applyTransform();
+  }
   // Move data-modals & detail panel into / out of the canvas so they stay visible
   const canvas = canvasEl;
-  const stash = document.getElementById('fs-modal-stash') || (() => {
-    const d = document.createElement('div'); d.id = 'fs-modal-stash'; d.style.display = 'none';
-    document.body.appendChild(d); return d;
-  })();
   const portable = document.querySelectorAll('.data-modal, .detail-panel, .lightbox, .more-menu, .media-viewer-modal, .gallery-add-modal');
   if(inFs){
-    portable.forEach(el => {
-      el.dataset.fsOrigParent = el.dataset.fsOrigParent || 'body';
-      canvas.appendChild(el);
-    });
+    portable.forEach(el => { if(el.parentElement !== canvas) canvas.appendChild(el); });
+    // Sync fs-overlay button state with the original toggle
+    const orig = document.getElementById('toggle-overlay');
+    const fsOv = document.getElementById('fs-overlay');
+    if(orig && fsOv) fsOv.classList.toggle('active', orig.classList.contains('active'));
   } else {
-    portable.forEach(el => {
-      if(el.parentElement !== document.body) document.body.appendChild(el);
-    });
+    portable.forEach(el => { if(el.parentElement !== document.body) document.body.appendChild(el); });
   }
   // Give the browser a tick to apply the new size, then re-render PDF crisp
-  setTimeout(() => rerenderPdfDebounced(50), 60);
+  setTimeout(() => { try { rerenderPdfDebounced(50); } catch(e){} }, 60);
 }
 document.addEventListener('fullscreenchange', handleFullscreenChange);
 document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
 
 // Wire fullscreen toolbar buttons → reuse existing button handlers
 (function wireFsToolbar(){
-  const click = id => { const b = document.getElementById(id); if(b) b.click(); };
-  document.getElementById('fs-flow')     ?.addEventListener('click', () => click('btn-flow'));
-  document.getElementById('fs-overlay')  ?.addEventListener('click', () => {
-    click('toggle-overlay');
-    // Mirror active state from the original toggle
-    const orig = document.getElementById('toggle-overlay');
-    document.getElementById('fs-overlay').classList.toggle('active', orig?.classList.contains('active'));
-  });
-  document.getElementById('fs-zoom-in')   ?.addEventListener('click', () => click('zoom-in'));
-  document.getElementById('fs-zoom-out')  ?.addEventListener('click', () => click('zoom-out'));
-  document.getElementById('fs-zoom-reset')?.addEventListener('click', () => click('zoom-reset'));
-  document.getElementById('fs-exit')      ?.addEventListener('click', () => click('btn-fullscreen'));
-  // Initialise overlay button's active state to match the original
-  const orig = document.getElementById('toggle-overlay');
-  if(orig) document.getElementById('fs-overlay')?.classList.toggle('active', orig.classList.contains('active'));
+  const $ = id => document.getElementById(id);
+  const click = id => { const b = $(id); if(b) b.click(); };
+  // Keep the FS overlay-toggle button visually in sync with the real one
+  function syncOverlayState(){
+    const orig = $('toggle-overlay');
+    const fsOv = $('fs-overlay');
+    if(orig && fsOv) fsOv.classList.toggle('active', orig.classList.contains('active'));
+  }
+  $('fs-flow')      ?.addEventListener('click', () => click('btn-flow'));
+  $('fs-overlay')   ?.addEventListener('click', () => { click('toggle-overlay'); syncOverlayState(); });
+  $('fs-zoom-in')   ?.addEventListener('click', () => click('zoom-in'));
+  $('fs-zoom-out')  ?.addEventListener('click', () => click('zoom-out'));
+  $('fs-zoom-reset')?.addEventListener('click', () => click('zoom-reset'));
+  $('fs-exit')      ?.addEventListener('click', () => click('btn-fullscreen'));
+  // Also sync when the original toggle is clicked directly
+  $('toggle-overlay')?.addEventListener('click', () => setTimeout(syncOverlayState, 0));
+  // Initial sync
+  syncOverlayState();
 })();
 
 canvasEl.addEventListener('wheel', e => {
@@ -5960,7 +5943,6 @@ loadPdf();
         const reloadFlag = 'bcf-drive-pull-reload';
         if(!sessionStorage.getItem(reloadFlag)){
           sessionStorage.setItem(reloadFlag, '1');
-          console.log('[BCFDrive] Pulled fresh data from Drive — reloading to apply');
           setTimeout(() => location.reload(), 300);
         }
       } else {
